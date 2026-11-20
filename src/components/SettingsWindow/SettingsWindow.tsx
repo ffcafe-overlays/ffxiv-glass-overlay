@@ -151,47 +151,42 @@ export function SettingsWindow({
       windowFeatures += `,left=${savedGeometry.left},top=${savedGeometry.top}`;
     }
 
-    const newWindow = window.open('', 'SettingsWindow', windowFeatures);
+    const settingsUrl = new URL('settings.html', window.location.href).href;
+    const newWindow = window.open(settingsUrl, 'SettingsWindow', windowFeatures);
 
     if (newWindow) {
       windowRef.current = newWindow;
 
-      // Set up the window document
-      newWindow.document.title = 'Glass Overlay Settings';
-      newWindow.document.body.innerHTML = '';
-      newWindow.document.body.style.margin = '0';
-      newWindow.document.body.style.padding = '0';
-      newWindow.document.body.style.background = 'rgba(15, 15, 20, 0.98)';
-      newWindow.document.body.style.minHeight = '100vh';
-
-      // Copy styles
-      copyStyles(newWindow.document);
-
-      // Create container for React portal
-      const containerDiv = newWindow.document.createElement('div');
-      containerDiv.id = 'settings-root';
-      containerDiv.className = 'overlay-container theme-default settings-window-container';
-      newWindow.document.body.appendChild(containerDiv);
-      setContainer(containerDiv);
-
-      // Handle window close
-      newWindow.addEventListener('beforeunload', () => {
-        // Save geometry before closing (unless resetting, geometry already saved with defaults)
-        if (!isResettingRef.current && windowRef.current) {
-          saveWindowGeometry(windowRef.current);
+      // Wait for the declared document; the initial about:blank has no surface authorization.
+      const ready = window.setInterval(() => {
+        if (newWindow.closed || windowRef.current !== newWindow) {
+          window.clearInterval(ready);
+          if (windowRef.current === newWindow) {
+            windowRef.current = null;
+            setContainer(null);
+            onClose();
+          }
+          return;
         }
-        windowRef.current = null;
-        setContainer(null);
-
-        // If resetting, reopen the window; otherwise call onClose
-        if (isResettingRef.current) {
-          isResettingRef.current = false;
-          // Use setTimeout to allow the close to complete before reopening
-          setTimeout(() => openWindow(), 50);
-        } else {
-          onClose();
-        }
-      });
+        if (newWindow.location.href !== settingsUrl || newWindow.document.readyState !== 'complete') return;
+        window.clearInterval(ready);
+        newWindow.document.body.style.cssText = 'margin:0;padding:0;background:rgba(15,15,20,.98);min-height:100vh';
+        copyStyles(newWindow.document);
+        const containerDiv = newWindow.document.createElement('div');
+        containerDiv.id = 'settings-root';
+        containerDiv.className = 'overlay-container theme-default settings-window-container';
+        newWindow.document.body.appendChild(containerDiv);
+        setContainer(containerDiv);
+        newWindow.addEventListener('beforeunload', () => {
+          if (!isResettingRef.current) saveWindowGeometry(newWindow);
+          windowRef.current = null;
+          setContainer(null);
+          if (isResettingRef.current) {
+            isResettingRef.current = false;
+            setTimeout(() => openWindow(), 50);
+          } else onClose();
+        });
+      }, 25);
     }
   }, [copyStyles, onClose]);
 
