@@ -1,14 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
 
-import { parseLogLine, getTrackedSkillDef } from '../services/LogLineParser';
+import { getTrackedSkillDef } from '../services/LogLineParser';
 
-import type { ActiveTimer, TimerSettings, LogLineCallback } from '../types';
+import type { ActiveTimer, TimerSettings } from '../types';
+
+interface SpellUse {
+  skillId: number;
+  skillName?: string;
+  casterName: string;
+  timestamp: number;
+}
 
 interface UseSpellTimersReturn {
   /** Active cooldown timers */
   activeTimers: ActiveTimer[];
-  /** Handle LogLine event */
-  handleLogLine: LogLineCallback;
+  handleSpellUse: (event: SpellUse) => void;
   /** Clear all timers */
   clearTimers: () => void;
 }
@@ -24,16 +30,14 @@ export function useSpellTimers(settings: TimerSettings, playerName: string): Use
     setActiveTimers([]);
   }, []);
 
-  // Handle LogLine event
-  const handleLogLine = useCallback(
-    (data: { line: string[] }) => {
+  const handleSpellUse = useCallback(
+    (event: SpellUse) => {
       if (!settings.enabled) return;
-
-      const event = parseLogLine(data.line);
-      if (!event) return;
 
       const skillDef = getTrackedSkillDef(event.skillId);
       if (!skillDef) return;
+      const duration = skillDef.cooldown * 1000;
+      if (Date.now() - event.timestamp >= duration) return;
 
       // Check if we should track this skill
       if (settings.trackedSkills.length > 0 && !settings.trackedSkills.includes(event.skillId)) {
@@ -56,9 +60,9 @@ export function useSpellTimers(settings: TimerSettings, playerName: string): Use
       // Create new timer
       const newTimer: ActiveTimer = {
         skillId: event.skillId,
-        skillName: event.skillName,
+        skillName: event.skillName || skillDef.name,
         startTime: event.timestamp,
-        duration: skillDef.cooldown * 1000, // Convert to ms
+        duration,
         casterName: event.casterName,
       };
 
@@ -93,7 +97,7 @@ export function useSpellTimers(settings: TimerSettings, playerName: string): Use
 
   return {
     activeTimers,
-    handleLogLine,
+    handleSpellUse,
     clearTimers,
   };
 }

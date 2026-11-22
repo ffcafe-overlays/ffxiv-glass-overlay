@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { processAlerts } from '../services/AlertService';
+import { clearAlertCooldowns, processAlerts } from '../services/AlertService';
 
 import type { RawCombatData, AlertSettings } from '../types';
 
@@ -10,14 +10,27 @@ import type { RawCombatData, AlertSettings } from '../types';
 export function useAlertProcessing(
   combatData: RawCombatData | null,
   alertSettings: AlertSettings,
-  playerName: string
+  playerName: string,
+  inMojitoPackage: boolean,
+  epoch: number | undefined
 ): void {
   const previousCombatDataRef = useRef<RawCombatData | null>(null);
 
+  const previousEpoch = useRef<number | undefined>(undefined);
+
   useEffect(() => {
+    if (inMojitoPackage) {
+      if (epoch === undefined) return;
+      if (previousEpoch.current !== epoch) {
+        previousEpoch.current = epoch;
+        previousCombatDataRef.current = combatData;
+        clearAlertCooldowns();
+        return;
+      }
+    }
     if (!combatData) {
       // Check for encounter end (had data, now null)
-      if (previousCombatDataRef.current) {
+      if (!inMojitoPackage && previousCombatDataRef.current) {
         processAlerts(
           alertSettings,
           previousCombatDataRef.current,
@@ -44,10 +57,11 @@ export function useAlertProcessing(
       playerName,
       previousCombatDataRef.current,
       isEncounterStart,
-      isEncounterEnd
+      isEncounterEnd,
+      inMojitoPackage
     );
 
     // Update ref for next comparison
     previousCombatDataRef.current = combatData;
-  }, [combatData, alertSettings, playerName]);
+  }, [combatData, alertSettings, playerName, inMojitoPackage, epoch]);
 }

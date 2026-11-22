@@ -1,7 +1,6 @@
 import overlayPlugin from './OverlayPlugin';
 
 import type { AlertTrigger, AlertSettings, RawCombatData } from '../types';
-import { parseNumericValue } from '../utils/formatters';
 
 // Cooldown tracking (time-based)
 const triggeredAlerts = new Map<string, number>();
@@ -73,16 +72,17 @@ function checkDeath(
   trigger: AlertTrigger,
   combatData: RawCombatData,
   playerName: string,
-  previousData: RawCombatData | null
+  previousData: RawCombatData | null,
+  inMojitoPackage: boolean
 ): boolean {
   if (!combatData.Combatant || !previousData?.Combatant) return false;
 
-  for (const combatant of Object.values(combatData.Combatant)) {
-    const deaths = parseNumericValue(combatant.deaths);
-    const prevCombatant = previousData.Combatant[combatant.name];
-    const prevDeaths = prevCombatant ? parseNumericValue(prevCombatant.deaths) : 0;
+  for (const [key, combatant] of Object.entries(combatData.Combatant)) {
+    const previous = previousData.Combatant[inMojitoPackage ? key : combatant.name];
+    const deaths = parseFloat(String(combatant.deaths));
+    const prevDeaths = previous ? parseFloat(String(previous.deaths)) : inMojitoPackage ? NaN : 0;
 
-    if (deaths > prevDeaths) {
+    if (Number.isFinite(deaths) && Number.isFinite(prevDeaths) && deaths > prevDeaths) {
       // Someone died
       if (trigger.condition.player === 'self') {
         if (isPlayerMatch(combatant.name, playerName)) {
@@ -106,7 +106,8 @@ export function processAlerts(
   playerName: string,
   previousData: RawCombatData | null,
   isEncounterStart: boolean,
-  isEncounterEnd: boolean
+  isEncounterEnd: boolean,
+  inMojitoPackage = false
 ): void {
   if (!settings.enabled) return;
   if (!combatData) return;
@@ -124,7 +125,7 @@ export function processAlerts(
       case 'death':
         // Only check during active encounter
         if (isEncounterActive) {
-          shouldFire = checkDeath(trigger, combatData, playerName, previousData);
+          shouldFire = checkDeath(trigger, combatData, playerName, previousData, inMojitoPackage);
         }
         break;
 

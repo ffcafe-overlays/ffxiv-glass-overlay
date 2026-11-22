@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Header } from './components/Header';
@@ -16,6 +16,8 @@ import { useDemoMode } from './hooks/useDemoMode';
 import { useSettings } from './hooks/useSettings';
 import { useAlertProcessing } from './hooks/useAlertProcessing';
 import overlayPlugin from './services/OverlayPlugin';
+import { parseLogLine } from './services/LogLineParser';
+import { inMojitoPackage, useMojitoActivity } from './services/MojitoActivity';
 import { DEMO_DATA } from './data/demoData';
 
 import type { RawCombatData, ViewType, PrimaryPlayerData } from './types';
@@ -41,12 +43,39 @@ function App() {
   // Custom hooks
   const { settings, saveSettings, effectivePlayerName } = useSettings(detectedPlayerName);
   const { entries: aggroEntries, target: aggroTarget, handleAggroList } = useAggroData();
-  const { activeTimers, handleLogLine } = useSpellTimers(settings.timers, effectivePlayerName);
+  const { activeTimers, handleSpellUse, clearTimers } = useSpellTimers(settings.timers, effectivePlayerName);
+  const activity = useMojitoActivity();
+  const seenActions = useRef({ epoch: activity?.epoch, keys: new Set<string>() });
+  const handleRemoteLog = useRef(handleSpellUse);
+  useEffect(() => {
+    handleRemoteLog.current = handleSpellUse;
+  }, [handleSpellUse]);
   const isLocked = useOverlayLock();
   const [demoMode] = useDemoMode();
 
   // Process alerts when combat data changes
-  useAlertProcessing(combatData, settings.alerts, effectivePlayerName);
+  useAlertProcessing(combatData, settings.alerts, effectivePlayerName, inMojitoPackage, activity?.epoch);
+
+  useEffect(() => {
+    if (!activity) return;
+    const seen = seenActions.current;
+    if (seen.epoch !== activity.epoch) {
+      seen.epoch = activity.epoch;
+      seen.keys.clear();
+      clearTimers();
+    }
+    const present = new Set(activity.actions.map(({ key }) => key));
+    for (const key of seen.keys) if (!present.has(key)) seen.keys.delete(key);
+    for (const action of activity.actions) {
+      if (seen.keys.has(action.key)) continue;
+      seen.keys.add(action.key);
+      handleSpellUse({
+        skillId: action.actionId,
+        casterName: action.casterName,
+        timestamp: activity.publishedAt - action.ageMs,
+      });
+    }
+  }, [activity, clearTimers, handleSpellUse]);
 
   // Apply opacity to container
   useEffect(() => {
@@ -70,23 +99,27 @@ function App() {
 
   const handleOpenSettings = useCallback(() => setShowSettings(true), []);
   const handleCloseSettings = useCallback(() => setShowSettings(false), []);
+  const handleToggleCollapse = useCallback(() => setIsCollapsed((p) => !p), []);
 
   // Initialize OverlayPlugin
   useEffect(() => {
-    const logLineHandler = (data: { line: string[] }) => handleLogLine(data);
+    const logLineHandler = (data: { line: string[] }) => {
+      const event = parseLogLine(data.line);
+      if (event) handleRemoteLog.current(event);
+    };
 
     try {
       overlayPlugin.initialize(handleCombatData, undefined, {
         onPrimaryPlayer: handlePrimaryPlayer,
         onAggroList: handleAggroList,
-        onLogLine: logLineHandler,
+        onLogLine: inMojitoPackage ? undefined : logLineHandler,
       });
     } catch (error) {
       setInitError(error instanceof Error ? error.message : 'Failed to initialize');
     }
 
     return () => overlayPlugin.cleanup();
-  }, [handleCombatData, handlePrimaryPlayer, handleAggroList, handleLogLine]);
+  }, [handleCombatData, handlePrimaryPlayer, handleAggroList]);
 
   // Use demo data when in demo mode
   const displayData = demoMode ? DEMO_DATA : combatData;
@@ -111,8 +144,6 @@ function App() {
   ]
     .filter(Boolean)
     .join(' ');
-
-  const handleToggleCollapse = useCallback(() => setIsCollapsed((p) => !p), []);
 
   const footerProps = {
     currentView,
