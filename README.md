@@ -2,11 +2,9 @@
 
 A sleek, modern DPS overlay for Final Fantasy XIV inspired by Apple's Liquid Glass (inspired, not replicating). Built for use with [OverlayPlugin](https://github.com/OverlayPlugin/OverlayPlugin) and Advanced Combat Tracker (ACT).
 
-## Preview
+**Hosted overlay:** `https://piousvenom.github.io/ffxiv-glass-overlay/` (paste this URL into OverlayPlugin). It looks blank in a normal browser; the overlay only renders once ACT sends it combat data.
 
-![preview.png](docs/images/preview.png)
-
-### Themes
+## Themes
 
 | Default | Dark | Light |
 |---------|------|-------|
@@ -28,7 +26,7 @@ A sleek, modern DPS overlay for Final Fantasy XIV inspired by Apple's Liquid Gla
   - Privacy blur mode for streaming
 - **TTS Alerts** - Text-to-speech notifications for combat events (death alerts, DPS thresholds, aggro warnings)
 - **Spell Timers** - Track party cooldowns and raid buffs with visual timers
-- **Localization** - Available in English, Japanese, German, and French
+- **Localization** - Available in English, Japanese, German, French, and Simplified Chinese
 - **Real-time Stats** - DPS, HPS, damage taken with percentage breakdowns
 - **Responsive Design** - Resizable overlay that fits in any corner of your screen
 - **Persistent Settings** - Your preferences are saved locally
@@ -45,7 +43,7 @@ A sleek, modern DPS overlay for Final Fantasy XIV inspired by Apple's Liquid Gla
 1. In ACT, go to **Plugins** → **OverlayPlugin.dll**
 2. Click **New** to create a new overlay
 3. Select **Mini Parse** as the preset
-4. Set the overlay URL to the hosted version or your local build path
+4. Set the overlay URL to `https://piousvenom.github.io/ffxiv-glass-overlay/` (or your local build path, see [Local Installation](#local-installation) below)
 5. Adjust the overlay size and position to your preference
 6. Enable **Click-through** if you want the overlay to not interfere with gameplay
 
@@ -104,7 +102,7 @@ Click the gear icon (⚙️) in the footer to access settings. Settings open in 
 |----------------|-----------------------------------------------|
 | Your Name      | Your character name (displays as "YOU")       |
 | Auto-detect    | Automatically detect player name from game    |
-| Language       | UI language (English, Japanese, German, French) |
+| Language       | UI language (English, Japanese, German, French, Simplified Chinese) |
 | Theme          | Visual theme (Default, Dark, Light)           |
 | Opacity        | Overlay transparency level                    |
 
